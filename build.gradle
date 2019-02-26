@@ -1,0 +1,23 @@
+plugins {
+    id 'java'
+    id "com.gradle.build-scan" version "2.1"
+}
+
+group 'org.gradle'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+buildScan {
+    server = 'https://e.grdev.net'
+    publishAlways()
+    captureTaskInputFiles = true
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
