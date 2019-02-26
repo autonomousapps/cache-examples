@@ -1,6 +1,8 @@
+import java.util.concurrent.atomic.AtomicBoolean
+
 plugins {
     id 'java'
-    id "com.gradle.build-scan" version "2.1"
+    id 'com.gradle.build-scan' version '2.1'
 }
 
 group 'org.gradle'
@@ -12,33 +14,86 @@ repositories {
     mavenCentral()
 }
 
-buildScan {
-    server = 'https://e.grdev.net'
-    publishAlways()
-    captureTaskInputFiles = true
+dependencies {
+    implementation project(':cache-examples-lib')
+    testImplementation 'junit:junit:4.12'
+}
 
-    background {
-        def gitCommitId = execAndGetStdout("git", "rev-parse", "--verify", "HEAD")
-        def branchName = execAndGetStdout("git", "rev-parse", "--abbrev-ref", "HEAD")
-        if (branchName != null && !branchName.isEmpty() && branchName != "HEAD") {
-            tag branchName
+ext.geServer = System.getProperty('geServer')
+
+buildScan {
+    publishAlways()
+
+    if (geServer != null) {
+        // Use private server
+        server = geServer
+        captureTaskInputFiles = true
+
+        background {
+            def gitCommitId = execAndGetStdout('git', 'rev-parse', '--verify', 'HEAD')
+            def branchName = execAndGetStdout('git', 'rev-parse', '--abbrev-ref', 'HEAD')
+            def status = execAndGetStdout('git', 'status', '--porcelain')
+            if (branchName != null && !branchName.isEmpty() && branchName != 'HEAD') {
+                tag branchName
+                value 'Git branch name', branchName
+            }
+            if (status != null && !status.isEmpty()) {
+                tag 'dirty'
+                value 'Git status', status
+            }
+            value 'Git Commit ID', gitCommitId
+            link 'Git commit scans', customValueSearchUrl(['Git Commit ID': gitCommitId])
         }
-        value "Git Commit ID", gitCommitId
-        link "Git commit scans", customValueSearchUrl(['Git Commit ID': gitCommitId])
+
+        if (System.getenv('CI')) {
+            tag 'CI'
+        } else {
+            tag 'LOCAL'
+        }
+    } else {
+        // Use public scans server
+        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+        termsOfServiceAgree = 'yes'
     }
 }
 
-dependencies {
-    implementation project(':cache-examples-lib')
+gradle.taskGraph.afterTask { task ->
+    if (isBuildCacheEnabled() && isNotTaggedYet() && isCacheMiss(task)) {
+        buildScan.tag 'CACHE_MISS'
+    }
+}
 
-    testImplementation 'junit:junit:4.12'
+def isBuildCacheEnabled() {
+    gradle.startParameter.buildCacheEnabled
+}
+
+ext.cacheMissTagged = new AtomicBoolean(false)
+def isNotTaggedYet() {
+    cacheMissTagged.compareAndSet(false, true)
+}
+
+def isCacheMiss(Task task) {
+    !task.state.skipped && isCompileCacheMiss(task)
+}
+
+def isCompileCacheMiss(Task task) {
+    isMonitoredCompileTask(task) && !isExpectedCompileCacheMiss(task)
+}
+
+def isMonitoredCompileTask(Task task) {
+    task instanceof AbstractCompile
+}
+
+def isExpectedCompileCacheMiss(Task task) {
+    // Simplification for demo purposes
+    false
 }
 
 def customValueSearchUrl(Map<String, String> search) {
     def query = search.collect { name, value ->
-        "search.names=${URLEncoder.encode(name, "UTF-8")}&search.values=${URLEncoder.encode(value, "UTF-8")}"
-    }.join("&")
-    return "https://e.grdev.net/scans?$query"
+        "search.names=${URLEncoder.encode(name, 'UTF-8')}&search.values=${URLEncoder.encode(value, 'UTF-8')}"
+    }.join('&')
+    return "$geServer/scans?$query"
 }
 
 def execAndGetStdout(String... args) {
@@ -48,4 +103,54 @@ def execAndGetStdout(String... args) {
         standardOutput = stdout
     }
     return stdout.toString().trim()
+}
+
+def createSourceTask = tasks.register('createSource', CreateSourceTask) {
+    outputFile = file("$project.buildDir/$name/src/main/java/GeneratedClass.java")
+}
+
+sourceSets {
+    main {
+        java.srcDirs += "${buildDir}/$createSourceTask.name/src/main/java/"
+    }
+}
+
+tasks.named('compileJava').configure { JavaCompile task ->
+    task.dependsOn createSourceTask
+}
+
+@CacheableTask
+class CreateSourceTask extends DefaultTask {
+
+    private File outFile
+
+    void setOutputFile(File file) {
+        outFile = file
+    }
+
+    @OutputFile
+    File getOutputFile() {
+        return outFile
+    }
+
+    @Input
+    long getTime() {
+        // TODO make this configurable
+        return System.currentTimeMillis()
+    }
+
+    @TaskAction
+    def action() {
+        outFile.delete()
+        outFile << """
+class GeneratedClass {
+
+    public long currentTime = ${time}L;
+
+    void sayHello() {
+        System.out.println("Hello, world! It is now " + currentTime);
+    }
+}
+"""
+    }
 }
