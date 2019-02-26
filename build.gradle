@@ -58,7 +58,7 @@ buildScan {
 }
 
 gradle.taskGraph.afterTask { task ->
-    if (isBuildCacheEnabled() && isNotTaggedYet() && isCacheMiss(task)) {
+    if (isBuildCacheEnabled() && isCacheMiss(task) && isNotTaggedYet()) {
         buildScan.tag 'CACHE_MISS'
     }
 }
@@ -93,7 +93,7 @@ def customValueSearchUrl(Map<String, String> search) {
     def query = search.collect { name, value ->
         "search.names=${URLEncoder.encode(name, 'UTF-8')}&search.values=${URLEncoder.encode(value, 'UTF-8')}"
     }.join('&')
-    return "$geServer/scans?$query"
+    "$geServer/scans?$query"
 }
 
 def execAndGetStdout(String... args) {
@@ -106,7 +106,12 @@ def execAndGetStdout(String... args) {
 }
 
 def createSourceTask = tasks.register('createSource', CreateSourceTask) {
-    outputFile = file("$project.buildDir/$name/src/main/java/GeneratedClass.java")
+    outputFile = file("$buildDir/$name/src/main/java/GeneratedClass.java")
+
+    if (project.hasProperty('stable')) {
+        // A Tuesday
+        timestamp = 1551224060480L
+    }
 }
 
 sourceSets {
@@ -122,30 +127,34 @@ tasks.named('compileJava').configure { JavaCompile task ->
 @CacheableTask
 class CreateSourceTask extends DefaultTask {
 
-    private File outFile
+    private File _outputFile
+    private long _timestamp = System.currentTimeMillis()
 
-    void setOutputFile(File file) {
-        outFile = file
+    void setOutputFile(File outputFile) {
+        _outputFile = outputFile
     }
 
     @OutputFile
     File getOutputFile() {
-        return outFile
+        return _outputFile
+    }
+
+    void setTimestamp(long timestamp) {
+        _timestamp = timestamp
     }
 
     @Input
-    long getTime() {
-        // TODO make this configurable
-        return System.currentTimeMillis()
+    long getTimestamp() {
+        return _timestamp
     }
 
     @TaskAction
     def action() {
-        outFile.delete()
-        outFile << """
+        _outputFile.delete()
+        _outputFile << """
 class GeneratedClass {
 
-    public long currentTime = ${time}L;
+    public long currentTime = ${_timestamp}L;
 
     void sayHello() {
         System.out.println("Hello, world! It is now " + currentTime);
