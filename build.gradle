@@ -72,19 +72,19 @@ def isNotTaggedYet() {
     cacheMissTagged.compareAndSet(false, true)
 }
 
-def isCacheMiss(Task task) {
+static isCacheMiss(Task task) {
     !task.state.skipped && isCompileCacheMiss(task)
 }
 
-def isCompileCacheMiss(Task task) {
+static isCompileCacheMiss(Task task) {
     isMonitoredCompileTask(task) && !isExpectedCompileCacheMiss(task)
 }
 
-def isMonitoredCompileTask(Task task) {
+static isMonitoredCompileTask(Task task) {
     task instanceof AbstractCompile
 }
 
-def isExpectedCompileCacheMiss(Task task) {
+static isExpectedCompileCacheMiss(Task task) {
     // Simplification for demo purposes
     false
 }
