@@ -107,10 +107,13 @@ def execAndGetStdout(String... args) {
 
 def createSourceTask = tasks.register('createSource', CreateSourceTask) {
     outputFile = file("$buildDir/$name/src/main/java/GeneratedClass.java")
+    configFile = file("src/config/config.properties")
 
     if (project.hasProperty('stable')) {
         // A Tuesday
         timestamp = 1551224060480L
+
+        stable = true
     }
 }
 
@@ -128,7 +131,9 @@ tasks.named('compileJava').configure { JavaCompile task ->
 class CreateSourceTask extends DefaultTask {
 
     private File _outputFile
+    private File _configFile
     private long _timestamp = System.currentTimeMillis()
+    private boolean _stable = false
 
     void setOutputFile(File outputFile) {
         _outputFile = outputFile
@@ -148,13 +153,41 @@ class CreateSourceTask extends DefaultTask {
         return _timestamp
     }
 
+    void setConfigFile(File configFile) {
+        _configFile = configFile
+    }
+
+    @PathSensitive(PathSensitivity.NONE)
+    @InputFile
+    File getConfigFile() {
+        return _configFile
+    }
+
+    void setStable(boolean stable) {
+        _stable = stable
+    }
+
+    @Input
+    boolean isStable() {
+        return _stable
+    }
+
     @TaskAction
     def action() {
-        _outputFile.delete()
-        _outputFile << """
+        outputFile.delete()
+
+        def comment
+        if (stable) {
+            comment = project.projectDir.relativePath(configFile)
+        } else {
+            comment = configFile.absolutePath
+        }
+
+        outputFile << """
+// Path to config file: $comment
 class GeneratedClass {
 
-    public long currentTime = ${_timestamp}L;
+    public long currentTime = ${timestamp}L;
 
     void sayHello() {
         System.out.println("Hello, world! It is now " + currentTime);
