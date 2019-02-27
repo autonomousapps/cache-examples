@@ -127,6 +127,11 @@ tasks.named('compileJava').configure { JavaCompile task ->
     task.dependsOn createSourceTask
 }
 
+tasks.register("unrelocatableTask", UnrelocatableTask) {
+    outputFile = file("$buildDir/$name/out_file")
+    configFile = file("src/config/config.properties")
+}
+
 @CacheableTask
 class CreateSourceTask extends DefaultTask {
 
@@ -167,7 +172,7 @@ class CreateSourceTask extends DefaultTask {
         _stable = stable
     }
 
-    @Input
+    @Internal
     boolean isStable() {
         return _stable
     }
@@ -176,15 +181,15 @@ class CreateSourceTask extends DefaultTask {
     def action() {
         outputFile.delete()
 
-        def comment
+        def path
         if (stable) {
-            comment = project.projectDir.relativePath(configFile)
+            path = project.projectDir.relativePath(configFile)
         } else {
-            comment = configFile.absolutePath
+            path = configFile.absolutePath
         }
 
         outputFile << """
-// Path to config file: $comment
+// Path to config file: $path
 class GeneratedClass {
 
     public long currentTime = ${timestamp}L;
@@ -194,5 +199,37 @@ class GeneratedClass {
     }
 }
 """
+    }
+}
+
+@CacheableTask
+class UnrelocatableTask extends DefaultTask {
+
+    private File _outputFile
+    private File _configFile
+
+    void setOutputFile(File outputFile) {
+        _outputFile = outputFile
+    }
+
+    @OutputFile
+    File getOutputFile() {
+        return _outputFile
+    }
+    
+    void setConfigFile(File configFile) {
+        _configFile = configFile
+    }
+
+//    @PathSensitive(PathSensitivity.NONE)
+    @InputFile
+    File getConfigFile() {
+        return _configFile
+    }
+    
+    @TaskAction
+    def action() {
+        outputFile.delete()
+        outputFile << configFile.text
     }
 }
