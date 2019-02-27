@@ -2,7 +2,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 plugins {
     id 'java'
-    id 'com.gradle.build-scan' version '2.1'
+    id 'com.gradle.build-scan' version '2.2'
 }
 
 group 'org.gradle'
@@ -28,7 +28,7 @@ buildScan {
         // Use private server
         server = geServer
         captureTaskInputFiles = true
-        
+
         background {
             def gitCommitId = execAndGetStdout('git', 'rev-parse', '--verify', 'HEAD')
             def branchName = execAndGetStdout('git', 'rev-parse', '--abbrev-ref', 'HEAD')
@@ -93,7 +93,11 @@ def customValueSearchUrl(Map<String, String> search) {
     def query = search.collect { name, value ->
         "search.names=${URLEncoder.encode(name, 'UTF-8')}&search.values=${URLEncoder.encode(value, 'UTF-8')}"
     }.join('&')
-    "$geServer/scans?$query"
+    "$geServer/scans?$query${withComparison()}"
+}
+
+static withComparison() {
+    "#selection.buildScanA=${URLEncoder.encode('{SCAN_ID}', 'UTF-8')}"
 }
 
 def execAndGetStdout(String... args) {
