@@ -28,7 +28,7 @@ buildScan {
         // Use private server
         server = geServer
         captureTaskInputFiles = true
-
+        
         background {
             def gitCommitId = execAndGetStdout('git', 'rev-parse', '--verify', 'HEAD')
             def branchName = execAndGetStdout('git', 'rev-parse', '--abbrev-ref', 'HEAD')
@@ -45,11 +45,11 @@ buildScan {
             link 'Git commit scans', customValueSearchUrl(['Git Commit ID': gitCommitId])
         }
 
-//        if (System.getenv('CI')) {
-//            tag 'CI'
-//        } else {
-//            tag 'LOCAL'
-//        }
+        if (System.getenv('CI')) {
+            tag 'CI'
+        } else {
+            tag 'LOCAL'
+        }
     } else {
         // Use public scans server
         termsOfServiceUrl = 'https://gradle.com/terms-of-service'
@@ -112,7 +112,6 @@ def createSourceTask = tasks.register('createSource', CreateSourceTask) {
     if (project.hasProperty('stable')) {
         // A Tuesday
         timestamp = 1551224060480L
-
         stable = true
     }
 }
@@ -136,7 +135,8 @@ def buildInfoTask = tasks.register("writeBuildInfo") {
     doLast {
         def buildInfo = file("src/main/resources/build-info.properties")
         buildInfo.delete()
-        buildInfo << "timestamp=${System.currentTimeMillis()}"
+        buildInfo << "timestamp=${System.currentTimeMillis()}\n"
+        buildInfo << "user=${System.getenv("USER")}"
     }
 }
 check.dependsOn buildInfoTask
