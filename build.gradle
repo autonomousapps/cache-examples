@@ -45,11 +45,11 @@ buildScan {
             link 'Git commit scans', customValueSearchUrl(['Git Commit ID': gitCommitId])
         }
 
-        if (System.getenv('CI')) {
-            tag 'CI'
-        } else {
-            tag 'LOCAL'
-        }
+//        if (System.getenv('CI')) {
+//            tag 'CI'
+//        } else {
+//            tag 'LOCAL'
+//        }
     } else {
         // Use public scans server
         termsOfServiceUrl = 'https://gradle.com/terms-of-service'
@@ -123,13 +123,30 @@ sourceSets {
     }
 }
 
-tasks.named('compileJava').configure { JavaCompile task ->
-    task.dependsOn createSourceTask
+tasks.named('compileJava').configure {
+    dependsOn createSourceTask
 }
 
 tasks.register("unrelocatableTask", UnrelocatableTask) {
     outputFile = file("$buildDir/$name/out_file")
     configFile = file("src/config/config.properties")
+}
+
+def buildInfoTask = tasks.register("writeBuildInfo") {
+    doLast {
+        def buildInfo = file("src/main/resources/build-info.properties")
+        buildInfo.delete()
+        buildInfo << "timestamp=${System.currentTimeMillis()}"
+    }
+}
+check.dependsOn buildInfoTask
+
+normalization {
+    runtimeClasspath {
+        if (project.hasProperty('stable')) {
+            ignore 'build-info.properties'
+        }
+    }
 }
 
 @CacheableTask
@@ -216,7 +233,7 @@ class UnrelocatableTask extends DefaultTask {
     File getOutputFile() {
         return _outputFile
     }
-    
+
     void setConfigFile(File configFile) {
         _configFile = configFile
     }
@@ -226,7 +243,7 @@ class UnrelocatableTask extends DefaultTask {
     File getConfigFile() {
         return _configFile
     }
-    
+
     @TaskAction
     def action() {
         outputFile.delete()
