@@ -44,12 +44,6 @@ buildScan {
             value 'Git Commit ID', gitCommitId
             link 'Git commit scans', customValueSearchUrl(['Git Commit ID': gitCommitId])
         }
-
-//        if (System.getenv('CI')) {
-//            tag 'CI'
-//        } else {
-//            tag 'LOCAL'
-//        }
     } else {
         // Use public scans server
         termsOfServiceUrl = 'https://gradle.com/terms-of-service'
